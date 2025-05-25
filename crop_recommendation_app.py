@@ -392,6 +392,12 @@ def register_page():
     
     st.markdown("</div>", unsafe_allow_html=True)
 
+def explain_feature_impact_readable(feature, impact, crop):
+    direction = "high" if impact > 0 else "low"
+    return f"⚠️ {feature.capitalize()} is too {direction} for growing {crop.capitalize()}."
+
+
+
 # Main application
 def main_app():
     try:
@@ -456,7 +462,9 @@ def main_app():
                     st.info(f"🌱 Recommended crop: **{result['Recommended Crop'].capitalize()}**")
                     st.markdown("### Why Not Suitable:")
                     for feature, impact in result['Why Not Suitable']:
-                        st.markdown(f"- **{feature}**: Impact value {impact:.4f}")
+                         explanation = explain_feature_impact_readable(feature, impact, crop)
+                         st.markdown(f"- {explanation}")
+
                     for key, value in result.items():
                         if key not in ['Status', 'Recommended Crop', 'Why Not Suitable', 'Polyculture Suggestions']:
                             st.markdown(f"<div class='stat-card'><b>{key}:</b> {value}</div>", unsafe_allow_html=True)
