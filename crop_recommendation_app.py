@@ -211,9 +211,9 @@ st.markdown("""
 # Data loading and model training functions
 @st.cache_data
 def load_data():
-    recommendation_df = pd.read_csv('datasets\Crop_recommendation.csv')
-    yield_df = pd.read_csv('datasets\crop_yield.csv')
-    price_df = pd.read_csv('datasets\Price_Agriculture_commodities_Week.csv')
+    recommendation_df = pd.read_csv('datasets/Crop_recommendation.csv')
+    yield_df = pd.read_csv('datasets/crop_yield.csv')
+    price_df = pd.read_csv('datasets/Price_Agriculture_commodities_Week.csv')
     return recommendation_df, yield_df, price_df
 
 @st.cache_resource
