@@ -1,4 +1,4 @@
-# 🌾 FarmForecast - Smart Crop Recommendation System
+# 🌾 FarmForecast: An Explainable AI System for Sustainable and Profitable Agriculture
 
 **FarmForecast** is an AI-powered Streamlit web application that helps farmers and agricultural planners determine the suitability of a crop based on soil and climate parameters. It also recommends alternative crops, provides polyculture suggestions, market prices, and visual insights using SHAP and Plotly.
 
