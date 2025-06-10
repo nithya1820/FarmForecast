@@ -9,8 +9,81 @@ import plotly.express as px
 import hashlib
 import sqlite3
 from pathlib import Path
+import pygad
 
 # Database functions
+
+def get_polyculture_suggestions_ga(crop, soil_data, recommendation_df, yield_df, price_df, state, max_crops=5):
+    """
+    Suggests a polyculture crop set using a Genetic Algorithm (GA).
+    Returns up to `max_crops` crops (excluding the main crop) that maximize total yield and price.
+    Each suggestion is a dict: {'Crop', 'Average Yield', 'Estimated Price'}.
+    """
+    crop = crop.lower()
+    all_crops = recommendation_df['label'].str.lower().unique().tolist()
+    # Exclude the main crop
+    candidate_crops = [c for c in all_crops if c != crop]
+    num_candidates = len(candidate_crops)
+    if num_candidates < 2:
+        return []
+
+    # Helper functions
+    def get_yield(crop_name):
+        data = yield_df[(yield_df['Crop'].str.lower() == crop_name) & (yield_df['State'].str.lower() == state.lower())]
+        if not data.empty:
+            return data['Yield'].mean()
+        return 0
+    def get_price(crop_name):
+        data = price_df[price_df['Commodity'].str.lower() == crop_name]
+        if not data.empty:
+            return data['Modal Price'].mean()
+        return 0
+
+    # Fitness function for PyGAD 2.20.0
+    def fitness_func(ga_instance, solution, solution_idx):
+        selected_indices = np.where(solution == 1)[0]
+        if len(selected_indices) < 2:
+            return 0
+        total_yield = sum(get_yield(candidate_crops[i]) for i in selected_indices)
+        total_profit = sum(get_yield(candidate_crops[i]) * get_price(candidate_crops[i]) for i in selected_indices)
+        # All crops compatible for now; can add compatibility score later
+        return total_profit + 1000 * total_yield
+
+    gene_space = [0, 1]
+    num_genes = num_candidates
+    ga_instance = pygad.GA(
+        num_generations=30,
+        num_parents_mating=5,
+        fitness_func=fitness_func,
+        sol_per_pop=10,
+        num_genes=num_genes,
+        gene_space=gene_space,
+        parent_selection_type="rank",
+        keep_parents=2,
+        crossover_type="single_point",
+        mutation_type="random",
+        mutation_percent_genes=20,
+        random_seed=42
+    )
+    ga_instance.run()
+    solution, solution_fitness, _ = ga_instance.best_solution()
+    selected_indices = np.where(solution == 1)[0]
+    # Limit to max_crops best by yield*price
+    crop_scores = [
+        (candidate_crops[i], get_yield(candidate_crops[i]), get_price(candidate_crops[i]))
+        for i in selected_indices
+    ]
+    crop_scores = sorted(crop_scores, key=lambda x: x[1]*x[2], reverse=True)[:max_crops]
+    suggestions = [
+        {
+            'Crop': name.capitalize(),
+            'Average Yield': round(yld, 2),
+            'Estimated Price': round(price, 2) if price else "N/A"
+        }
+        for name, yld, price in crop_scores if yld > 0 and price > 0
+    ]
+    return suggestions
+
 def create_users_db():
     conn = sqlite3.connect('users.db')
     c = conn.cursor()
@@ -285,7 +358,7 @@ def analyze_crop(rf_model, label_encoder, explainer, yield_df, price_df, recomme
     if suitable:
         stats = get_crop_stats(data)
         price = get_average_price(price_df, input_crop)
-        polyculture_suggestions = get_polyculture_suggestions_v2(input_crop, soil_data, recommendation_df, yield_df, price_df, state)
+        polyculture_suggestions = get_polyculture_suggestions_v2(input_crop, soil_data, recommendation_df, yield_df, price_df, state)        
         return {
             'Status': 'Suitable',
             'Crop': input_crop,
@@ -299,7 +372,7 @@ def analyze_crop(rf_model, label_encoder, explainer, yield_df, price_df, recomme
         suitable, new_data = is_crop_suitable(yield_df, state, recommended_crop)
         stats = get_crop_stats(new_data) if suitable else {}
         price = get_average_price(price_df, recommended_crop)
-        polyculture_suggestions = get_polyculture_suggestions_v2(input_crop, soil_data, recommendation_df, yield_df, price_df, state)
+        polyculture_suggestions = get_polyculture_suggestions_v2(input_crop, soil_data, recommendation_df, yield_df, price_df, state)        
         return {
             'Status': 'Not Suitable',
             'Recommended Crop': recommended_crop,
